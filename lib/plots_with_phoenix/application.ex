@@ -10,12 +10,14 @@ defmodule PlotsWithPhoenix.Application do
     children = [
       PlotsWithPhoenixWeb.Telemetry,
       PlotsWithPhoenix.Repo,
-      {DNSCluster, query: Application.get_env(:plots_with_phoenix, :dns_cluster_query) || :ignore},
+      {DNSCluster,
+       query: Application.get_env(:plots_with_phoenix, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PlotsWithPhoenix.PubSub},
       # Start a worker by calling: PlotsWithPhoenix.Worker.start_link(arg)
       # {PlotsWithPhoenix.Worker, arg},
       # Start to serve requests, typically the last entry
-      PlotsWithPhoenixWeb.Endpoint
+      PlotsWithPhoenixWeb.Endpoint,
+      PlotsWithPhoenix.RSessionPool
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

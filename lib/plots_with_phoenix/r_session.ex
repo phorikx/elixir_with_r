@@ -15,11 +15,11 @@ defmodule PlotsWithPhoenix.RSession do
   end
 
   def init(_opts) do
-    cmd = "R --slave --no-restore --no-save --quiet"
+    cmd = "R --no-restore --no-save --quiet"
     port = Port.open({:spawn, cmd}, [:binary, :exit_status, :hide])
 
     receive do
-      {^port, {:data, _}} -> :observer_backend
+      {^port, {:data, _}} -> :ok
     after
       5000 ->
         Logger.warn("r session startup timeout")
@@ -38,12 +38,12 @@ defmodule PlotsWithPhoenix.RSession do
     new_buffer = buffer <> data
 
     cond do
-      Regex.match?(@r_prompt_pattern, new_buffer) ->
-        result = extract_result(new_buffer)
+      Regex.match?(@r_prompt_pattern, data) ->
+        result = extract_result(data)
         if waiting, do: GenServer.reply(waiting, {:ok, result})
         {:noreply, %{state | buffer: "", waiting: nil}}
 
-      Regex.match?(@r_continuation_pattern, new_buffer) ->
+      Regex.match?(@r_continuation_pattern, data) ->
         if waiting, do: GenServer.reply(waiting, {:error, :incomplete_expression})
         {:noreply, %{state | buffer: "", waiting: nil}}
 
