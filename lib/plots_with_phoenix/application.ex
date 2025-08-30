@@ -16,8 +16,9 @@ defmodule PlotsWithPhoenix.Application do
       # Start a worker by calling: PlotsWithPhoenix.Worker.start_link(arg)
       # {PlotsWithPhoenix.Worker, arg},
       # Start to serve requests, typically the last entry
-      PlotsWithPhoenixWeb.Endpoint,
-      PlotsWithPhoenix.RSessionPool
+      PlotsWithPhoenix.UserRSessions,
+      PlotsWithPhoenixWeb.Endpoint
+      # PlotsWithPhoenix.RSessionPool
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

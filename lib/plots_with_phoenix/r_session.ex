@@ -22,7 +22,7 @@ defmodule PlotsWithPhoenix.RSession do
       {^port, {:data, _}} -> :ok
     after
       5000 ->
-        Logger.warn("r session startup timeout")
+        Logger.warning("r session startup timeout")
     end
 
     {:ok, %{port: port, buffer: "", waiting: nil}}
@@ -38,12 +38,12 @@ defmodule PlotsWithPhoenix.RSession do
     new_buffer = buffer <> data
 
     cond do
-      Regex.match?(@r_prompt_pattern, data) ->
-        result = extract_result(data)
+      Regex.match?(@r_prompt_pattern, new_buffer) ->
+        result = extract_result(new_buffer)
         if waiting, do: GenServer.reply(waiting, {:ok, result})
         {:noreply, %{state | buffer: "", waiting: nil}}
 
-      Regex.match?(@r_continuation_pattern, data) ->
+      Regex.match?(@r_continuation_pattern, new_buffer) ->
         if waiting, do: GenServer.reply(waiting, {:error, :incomplete_expression})
         {:noreply, %{state | buffer: "", waiting: nil}}
 
@@ -52,9 +52,9 @@ defmodule PlotsWithPhoenix.RSession do
     end
   end
 
-  def handle_info({:port, {:exit_status, status}}, %{port: port, waiting: waiting} = state) do
+  def handle_info({:port, {:exit_status, status}}, %{port: _port, waiting: waiting} = state) do
     Logger.error("r session died with status: #{status}")
-    if waiting, do: Genserver.reply(waiting, {:error, :session_died})
+    if waiting, do: GenServer.reply(waiting, {:error, :session_died})
     {:stop, :r_session_died, state}
   end
 
@@ -62,6 +62,9 @@ defmodule PlotsWithPhoenix.RSession do
     output
     |> String.split(~r/^> $/m)
     |> Enum.drop(-1)
+    |> List.last()
+    |> String.split(~r/\[1\] /m)
+    |> Enum.drop(1)
     |> List.last()
     |> case do
       nil -> ""

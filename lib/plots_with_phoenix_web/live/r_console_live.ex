@@ -2,34 +2,42 @@ defmodule PlotsWithPhoenixWeb.RConsoleLive do
   use PlotsWithPhoenixWeb, :live_view
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    user_session_id = session["user_session_id"] || generate_session_id()
+
     socket =
       socket
       |> assign(:code, "")
       |> assign(:results, [])
       |> assign(:loading, false)
       |> assign(:current_task, nil)
+      |> assign(:user_session_id, user_session_id)
 
     {:ok, socket}
   end
 
-  @impl true
-  def handle_event("update_code", %{"code" => code}, socket) do
-    {:noreply, assign(socket, :code, code)}
-  end
+  #   @impl true
+  # def handle_event("update_code", %{"code" => code}, socket) do
+  #   {:noreply, assign(socket, :code, code)}
+  # end
 
   @impl true
-  def handle_event("execute", %{"code" => code}, socket) do
+  def handle_event(
+        "execute",
+        %{"code" => code},
+        %{assigns: %{user_session_id: user_session_id}} = socket
+      ) do
     if String.trim(code) == "" do
       {:noreply, socket}
     else
       task =
         Task.async(fn ->
-          PlotsWithPhoenix.RSessionPool.eval(code)
+          PlotsWithPhoenix.UserRSessions.eval_for_user(user_session_id, code)
         end)
 
       socket =
         socket
+        |> assign(:code, code)
         |> assign(:loading, true)
         |> assign(:current_task, task.ref)
 
@@ -73,4 +81,8 @@ defmodule PlotsWithPhoenixWeb.RConsoleLive do
 
   @impl true
   def handle_info(_, socket), do: {:noreply, socket}
+
+  defp generate_session_id do
+    :crypto.strong_rand_bytes(16) |> Base.encode64()
+  end
 end

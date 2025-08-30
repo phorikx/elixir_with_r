@@ -8,6 +8,7 @@ defmodule PlotsWithPhoenixWeb.Router do
     plug :put_root_layout, html: {PlotsWithPhoenixWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :put_user_session
   end
 
   pipeline :api do
@@ -40,6 +41,17 @@ defmodule PlotsWithPhoenixWeb.Router do
 
       live_dashboard "/dashboard", metrics: PlotsWithPhoenixWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+  end
+
+  defp put_user_session(conn, _opts) do
+    case get_session(conn, :user_session_id) do
+      nil ->
+        session_id = :crypto.strong_rand_bytes(16) |> Base.encode64()
+        put_session(conn, :user_session_id, session_id)
+
+      _ ->
+        conn
     end
   end
 end

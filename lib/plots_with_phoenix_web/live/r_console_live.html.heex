@@ -6,10 +6,7 @@
       <label class="block text-sm font-medium mb-2">R Code:</label>
       <textarea
         name="code"
-        id="code"
-        phx-hook="CodeMirror"
-        phx-change="update_code"
-        value={@code}
+        id="r-code-input"
         placeholder="Enter R code here... (e.g., mean(c(1,2,3,4,5)))"
         class="w-full h-32 p-3 border rounded font-mono text-sm"
         disabled={@loading}
@@ -18,7 +15,7 @@
 
     <button
       type="submit"
-      disabled={@loading or @code == ""}
+      disabled={@loading}
       class="px-4 py-2 bg-blue-600 text-grey rounded hover:bg-blue-700 disabled:bg-gray-400"
     >
       <%= if @loading do %>
