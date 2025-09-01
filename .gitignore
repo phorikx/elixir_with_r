@@ -35,3 +35,5 @@ plots_with_phoenix-*.tar
 npm-debug.log
 /assets/node_modules/
 
+.RData 
+.Rhistory 

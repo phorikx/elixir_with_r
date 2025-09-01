@@ -46,6 +46,9 @@ defmodule PlotsWithPhoenix.DataGenerator do
 
       {:custom, fun} when is_function(fun, 2) ->
         fun.(row_idx, row_data)
+
+      {:constant, val} ->
+        val
     end
   end
 

@@ -40,5 +40,6 @@ defmodule PlotsWithPhoenix.DatasetTemplate do
   defp infer_type({:categorical, _}), do: :string
   defp infer_type({:sequence, _}), do: :integer
   defp infer_type({:dependent, _, _}), do: :dynamic
+  defp infer_type({:constant, _}), do: :dynamic
   defp infer_type({:custom, _}), do: :dynamic
 end
