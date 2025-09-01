@@ -9,22 +9,33 @@ defmodule Mix.Tasks.GenerateDataset do
   """
 
   use Mix.Task
-  alias PlotsWithPhoenix.{DatasetTemplate, DataGenerator, ParquetExporter}
+
+  alias PlotsWithPhoenix.{
+    DatasetTemplate,
+    DataGenerator,
+    ParquetExporter,
+    DatasetIterator,
+    IterationTemplate
+  }
 
   @shortdoc "Generates synthetic dataset"
   @switches [
     template: :string,
     rows: :integer,
     output: :string,
+    input: :string,
     reporting_period: :string,
-    help: :boolean
+    help: :boolean,
+    iterate: :boolean
   ]
   @aliases [
     t: :template,
     r: :rows,
     o: :output,
+    r: :input,
     p: :reporting_period,
-    h: :help
+    h: :help,
+    i: :iterate
   ]
 
   def run(args) do
@@ -32,18 +43,66 @@ defmodule Mix.Tasks.GenerateDataset do
 
     {opts, _} = OptionParser.parse!(args, switches: @switches, aliases: @aliases)
 
-    if opts[:help] do
-      print_help()
-    else
-      generate_dataset(opts)
+    cond do
+      opts[:help] ->
+        print_help()
+
+      opts[:iterate] ->
+        iterate_dataset(opts)
+
+      true ->
+        generate_dataset(opts)
     end
+  end
+
+  defp iterate_dataset(opts) do
+    template_name = opts[:template] || "transactions"
+    output_path = opts[:output] || "/tmp/dataset_#{template_name}.parquet"
+    input_path = opts[:input] || "/tmp/dataset_#{template_name}.parquet"
+
+    {:ok, previous_data} = Explorer.DataFrame.from_parquet(input_path)
+    previous_data_correct_format = Explorer.DataFrame.to_rows(previous_data)
+
+    reporting_period_dt =
+      previous_data
+      |> Explorer.DataFrame.pull("reporting_period")
+      |> Explorer.Series.to_enum()
+      |> Enum.at(0)
+
+    reporting_period =
+      "#{reporting_period_dt.year}#{reporting_period_dt.month |> left_pad()}#{reporting_period_dt.day |> left_pad()}"
+
+    template = build_template(template_name, reporting_period)
+
+    iteration_template =
+      build_iteration_template(template_name)
+
+    start_time = System.monotonic_time()
+
+    {:ok, data_set} =
+      DatasetIterator.iterate_dataset(previous_data_correct_format, template, iteration_template)
+
+    :ok = ParquetExporter.export_to_parquet(data_set, output_path)
+
+    end_time = System.monotonic_time()
+    duration_ms = System.convert_time_unit(end_time - start_time, :native, :millisecond)
+    file_size = File.stat!(output_path).size |> format_bytes()
+
+    IO.puts("""
+    ✅ Dataset iterated on successfully!
+
+      File: #{output_path}
+      Size: #{file_size}
+      Duration: #{duration_ms}ms 
+      Template: #{template_name}
+    """)
   end
 
   defp print_help do
     IO.puts(@moduledoc)
   end
 
-  defp generate_dataset(opts \\ []) do
+  defp generate_dataset(opts) do
     template_name = opts[:template] || "transactions"
     n_rows = opts[:rows] || 10_000
     output_path = opts[:output] || "/tmp/dataset_#{template_name}_#{n_rows}.parquet"
@@ -69,6 +128,21 @@ defmodule Mix.Tasks.GenerateDataset do
       Duration: #{duration_ms}ms 
       Template: #{template_name}
     """)
+  end
+
+  defp build_iteration_template("unemployment_benefits") do
+    IterationTemplate.new("unemployment_benefits", 0.7)
+    |> IterationTemplate.set_drop_rate(0.05)
+    |> IterationTemplate.set_new_record_percentage(0.10)
+    |> IterationTemplate.add_column_resampler(
+      "benefit_type",
+      0.70,
+      {:categorical,
+       {["temporary", "permanent", "due to sickness", "settlement"], [0.5, 0.1, 0.3, 0.1]}}
+    )
+    |> IterationTemplate.add_column_resampler("amount", 0.3, {:normal, 1000, 200})
+    |> IterationTemplate.add_column_resampler("additional_income", 0.9, {:normal, 300, 50})
+    |> IterationTemplate.add_column_transformer("age", fn age, _row -> age + 1 / 12 end)
   end
 
   defp build_template("transactions", reporting_period) do
@@ -129,7 +203,8 @@ defmodule Mix.Tasks.GenerateDataset do
     NaiveDateTime.new!(yyyy, mm, dd, 0, 0, 0) |> NaiveDateTime.to_date()
   end
 
-  defp parse_reporting_period(_) do
+  defp parse_reporting_period(test) do
+    IO.puts(test)
     IO.puts("received invalid date as reporting period.")
     System.halt(1)
   end
@@ -139,6 +214,16 @@ defmodule Mix.Tasks.GenerateDataset do
       bytes >= 1_000_000 -> "#{Float.round(bytes / 1_000_000, 1)} MB"
       bytes >= 1_000 -> "#{Float.round(bytes / 1_000, 1)} KB"
       true -> "#{bytes} B"
+    end
+  end
+
+  defp left_pad(something) do
+    string = to_string(something)
+
+    if String.length(string) < 2 do
+      "0" <> string
+    else
+      string
     end
   end
 end

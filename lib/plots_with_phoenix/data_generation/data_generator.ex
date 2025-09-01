@@ -14,16 +14,7 @@ defmodule PlotsWithPhoenix.DataGenerator do
     {:ok, data_stream, generation_order}
   end
 
-  defp generate_row(template, [var_name | rest], row_idx, row_data) do
-    variable = template.variables[var_name]
-    value = generate_value(variable, row_idx, row_data)
-    new_row_data = Map.put(row_data, var_name, value)
-    generate_row(template, rest, row_idx, new_row_data)
-  end
-
-  defp generate_row(_template, [], _row_idx, row_data), do: row_data
-
-  defp generate_value(%DatasetTemplate.Variable{generator: generator}, row_idx, row_data) do
+  def generate_single_value(generator, row_idx, row_data) do
     case generator do
       {:normal, mean, sd} ->
         :rand.normal(mean, sd)
@@ -51,6 +42,19 @@ defmodule PlotsWithPhoenix.DataGenerator do
         val
     end
   end
+
+  defp generate_value(%DatasetTemplate.Variable{generator: generator}, row_idx, row_data) do
+    generate_single_value(generator, row_idx, row_data)
+  end
+
+  defp generate_row(template, [var_name | rest], row_idx, row_data) do
+    variable = template.variables[var_name]
+    value = generate_value(variable, row_idx, row_data)
+    new_row_data = Map.put(row_data, var_name, value)
+    generate_row(template, rest, row_idx, new_row_data)
+  end
+
+  defp generate_row(_template, [], _row_idx, row_data), do: row_data
 
   defp weighted_sample(options, weights) do
     total = Enum.sum(weights)

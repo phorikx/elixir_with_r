@@ -6,4 +6,9 @@ defmodule PlotsWithPhoenix.ParquetExporter do
     df = Explorer.DataFrame.new(data_list)
     Explorer.DataFrame.to_parquet(df, output_path)
   end
+
+  def export_to_parquet(dataset, output_path) do
+    df = Explorer.DataFrame.new(dataset)
+    Explorer.DataFrame.to_parquet(df, output_path)
+  end
 end
