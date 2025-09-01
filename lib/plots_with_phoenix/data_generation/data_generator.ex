@@ -11,7 +11,7 @@ defmodule PlotsWithPhoenix.DataGenerator do
       end)
       |> Stream.chunk_every(10_000)
 
-    {:ok, data_stream, generation_order}
+    {:ok, data_stream}
   end
 
   def generate_single_value(generator, row_idx, row_data) do

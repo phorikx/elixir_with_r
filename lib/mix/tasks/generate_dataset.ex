@@ -82,7 +82,7 @@ defmodule Mix.Tasks.GenerateDataset do
     {:ok, data_set} =
       DatasetIterator.iterate_dataset(previous_data_correct_format, template, iteration_template)
 
-    :ok = ParquetExporter.export_to_parquet(data_set, output_path)
+    :ok = ParquetExporter.export_to_parquet(data_set, output_path, :list)
 
     end_time = System.monotonic_time()
     duration_ms = System.convert_time_unit(end_time - start_time, :native, :millisecond)
@@ -112,8 +112,8 @@ defmodule Mix.Tasks.GenerateDataset do
     template = build_template(template_name, reporting_period)
 
     start_time = System.monotonic_time()
-    {:ok, data_stream, column_order} = DataGenerator.generate_dataset(template, n_rows)
-    :ok = ParquetExporter.export_to_parquet(data_stream, column_order, output_path)
+    {:ok, data_stream} = DataGenerator.generate_dataset(template, n_rows)
+    :ok = ParquetExporter.export_to_parquet(data_stream, output_path, :stream)
 
     end_time = System.monotonic_time()
     duration_ms = System.convert_time_unit(end_time - start_time, :native, :millisecond)

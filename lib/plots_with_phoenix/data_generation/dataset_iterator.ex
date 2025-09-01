@@ -86,7 +86,7 @@ defmodule PlotsWithPhoenix.DatasetIterator do
   defp generate_new_records(original_template, new_record_count, sequence_maxes) do
     updated_template = continue_sequences(original_template, sequence_maxes)
 
-    {:ok, data_stream, _column_order} =
+    {:ok, data_stream} =
       DataGenerator.generate_dataset(updated_template, new_record_count)
 
     Enum.to_list(data_stream) |> List.flatten()
