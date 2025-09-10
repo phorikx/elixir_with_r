@@ -69,8 +69,10 @@ defmodule Mix.Tasks.GenerateDataset do
       |> Explorer.Series.to_enum()
       |> Enum.at(0)
 
+    next_reporting_period = transform_reporting_period(reporting_period_dt)
+
     reporting_period =
-      "#{reporting_period_dt.year}#{reporting_period_dt.month |> left_pad()}#{reporting_period_dt.day |> left_pad()}"
+      "#{next_reporting_period.year}#{next_reporting_period.month |> left_pad()}#{reporting_period_dt.day |> left_pad()}"
 
     template = build_template(template_name, reporting_period)
 
@@ -143,27 +145,36 @@ defmodule Mix.Tasks.GenerateDataset do
     |> IterationTemplate.add_column_resampler("amount", 0.3, {:normal, 1000, 200})
     |> IterationTemplate.add_column_resampler("additional_income", 0.9, {:normal, 300, 50})
     |> IterationTemplate.add_column_transformer("age", fn age, _row -> age + 1 / 12 end)
+    |> IterationTemplate.add_column_transformer("reporting_period", &transform_reporting_period/2)
   end
 
-  defp build_template("transactions", reporting_period) do
-    base_date = parse_reporting_period(reporting_period)
+  defp transform_reporting_period(period, _), do: transform_reporting_period(period)
 
-    DatasetTemplate.new("transactions")
-    |> DatasetTemplate.add_variable("transaction_id", {:sequence, 1})
-    |> DatasetTemplate.add_variable("customer_id", {:uniform, 1, 10_000})
-    |> DatasetTemplate.add_variable("amount", {:normal, 85.50, 10})
-    |> DatasetTemplate.add_variable("transaction_date", {:constant, base_date})
-    |> DatasetTemplate.add_variable(
-      "category",
-      {:categorical,
-       {["groceries", "gas", "restaurant", "retail", "online"], [0.3, 0.2, 0.2, 0.1, 0.2]}}
-    )
-    |> DatasetTemplate.add_variable(
-      "is_expensive",
-      {:dependent, "amount", &is_expensive/2},
-      ["amount"]
-    )
+  defp transform_reporting_period(period) do
+    NaiveDateTime.new!(period, ~T[00:00:00])
+    |> NaiveDateTime.shift(month: 1)
+    |> NaiveDateTime.to_date()
   end
+
+  #   defp build_template("transactions", reporting_period) do
+  #     base_date = parse_reporting_period(reporting_period)
+  # 
+  #     DatasetTemplate.new("transactions")
+  #     |> DatasetTemplate.add_variable("transaction_id", {:sequence, 1})
+  #     |> DatasetTemplate.add_variable("customer_id", {:uniform, 1, 10_000})
+  #     |> DatasetTemplate.add_variable("amount", {:normal, 85.50, 10})
+  #     |> DatasetTemplate.add_variable("transaction_date", {:constant, base_date})
+  #     |> DatasetTemplate.add_variable(
+  #       "category",
+  #       {:categorical,
+  #        {["groceries", "gas", "restaurant", "retail", "online"], [0.3, 0.2, 0.2, 0.1, 0.2]}}
+  #     )
+  #     |> DatasetTemplate.add_variable(
+  #       "is_expensive",
+  #       {:dependent, "amount", &is_expensive/2},
+  #       ["amount"]
+  #     )
+  #   end
 
   defp build_template("unemployment_benefits", reporting_period) do
     base_date = parse_reporting_period(reporting_period)
@@ -196,12 +207,19 @@ defmodule Mix.Tasks.GenerateDataset do
     end
   end
 
-  defp parse_reporting_period(period) when is_nil(period), do: Date.utc_today()
+  defp parse_reporting_period(period) when is_binary(period) do
+    if String.length(period) != 8 do
+      raise("reporting period should be length 9")
+    end
 
-  defp parse_reporting_period(<<yyyy::binary-4, mm::binary-2, dd::binary-2>>) do
+    yyyy = String.slice(period, 0..3)
+    mm = String.slice(period, 4..5)
+    dd = String.slice(period, 6..7)
     [yyyy, mm, dd] = for i <- [yyyy, mm, dd], do: String.to_integer(i)
     NaiveDateTime.new!(yyyy, mm, dd, 0, 0, 0) |> NaiveDateTime.to_date()
   end
+
+  defp parse_reporting_period(period) when is_nil(period), do: Date.utc_today()
 
   defp parse_reporting_period(test) do
     IO.puts(test)

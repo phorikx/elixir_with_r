@@ -50,6 +50,28 @@ defmodule PlotsWithPhoenix.IterationTemplate do
     %{template | column_resamplers: [resampler | template.column_resamplers]}
   end
 
+  def add_column_resampler(
+        %__MODULE__{} = template,
+        column,
+        probability,
+        %PlotsWithPhoenix.DatasetTemplate{} = previous_template
+      ) do
+    generator =
+      previous_template
+      |> Map.get(:variables)
+      |> Enum.filter(fn {col, _, _, _} -> col == column end)
+      |> Enum.at(0)
+      |> Map.get(:generator)
+
+    resampler = %ColumnResampler{
+      column: column,
+      probability: probability,
+      generator: generator
+    }
+
+    %{template | column_resamplers: [resampler | template.column_resamplers]}
+  end
+
   def add_column_transformer(%__MODULE__{} = template, column, transform_fn) do
     transformer = %ColumnTransformer{
       column: column,
