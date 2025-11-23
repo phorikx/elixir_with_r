@@ -1,0 +1,86 @@
+<div class="max-w-6xl mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-6 text-gray-900">Dataset Overview</h1>
+
+  <div class="mb-4 text-sm text-gray-600">
+    Loading progress: {12 - @loading_count} / 12 datasets analyzed
+    <%= if @loading_count > 0 do %>
+      <span class="inline-block animate-spin ml-2">⏳</span>
+    <% end %>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <%= for {month, dataset} <- @ordered_datasets do %>
+      <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+        <h3 class="font-semibold text-lg mb-2 capitalize text-gray-800">
+          {month}
+        </h3>
+
+        <div class="text-sm">
+          <div class="mb-1">
+            <span class="text-gray-600">File:</span>
+            <span class="font-mono text-xs">benefits_{month}.parquet</span>
+          </div>
+
+          <%= case dataset.status do %>
+            <% :missing -> %>
+              <div class="text-red-600 mt-2">
+                ❌ File not found
+              </div>
+            <% :pending -> %>
+              <div class="text-blue-600 mt-2">
+                <span class="animate-pulse">🔄 Analyzing...</span>
+              </div>
+            <% :loaded -> %>
+              <div class="mt-2 space-y-1">
+                <div class="text-green-700">
+                  ✅ <strong>{format_number(dataset.rows)}</strong> rows
+                </div>
+                <div class="text-gray-600">
+                  📊 {dataset.columns} columns
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  Analyzed via R
+                </div>
+              </div>
+            <% :error -> %>
+              <div class="text-red-600 mt-2">
+                ❌ Error: {dataset.error}
+              </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  
+<!-- Summary stats -->
+  <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+    <h2 class="text-g font-semibold mb-2 text-gray-800">Summary</h2>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div>
+        <span class="text-gray-600">Loaded datasets:</span>
+        <div class="font-semibold text-gray-800">{length(@loaded_datasets)} / 12</div>
+      </div>
+      <div>
+        <span class="text-gray-600">Total rows:</span>
+        <div class="font-semibold text-gray-800">{format_number(@total_rows)}</div>
+      </div>
+      <div>
+        <span class="text-gray-600">Avg rows/month:</span>
+        <div class="font-semibold text-gray-800">
+          <%= if length(@loaded_datasets) > 0 do %>
+            {format_number(div(@total_rows, length(@loaded_datasets)))}
+          <% else %>
+            -
+          <% end %>
+        </div>
+      </div>
+      <div>
+        <span class="text-gray-600">Status:</span>
+        <div class="font-semibold text-gray-800">
+          {if @loading_count == 0, do: "Complete", else: "Loading..."}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

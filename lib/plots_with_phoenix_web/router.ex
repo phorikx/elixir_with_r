@@ -20,6 +20,7 @@ defmodule PlotsWithPhoenixWeb.Router do
 
     get "/", PageController, :home
     live "/r_console", RConsoleLive, :index
+    live "/datasets", DatasetOverviewLive, :index
   end
 
   # Other scopes may use custom stacks.
