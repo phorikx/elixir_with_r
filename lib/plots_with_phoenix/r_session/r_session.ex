@@ -17,14 +17,14 @@ defmodule PlotsWithPhoenix.RSession do
   end
 
   def init(_opts) do
-    cmd = "R --no-restore --no-save --quiet"
+    cmd = "R --no-restore --no-save --quiet 2>/dev/null"
     port = Port.open({:spawn, cmd}, [:binary, :exit_status, :hide])
 
     # Wait for initial R startup and consume all startup messages
     _startup_buffer = wait_for_r_ready(port, "", 5000)
 
-    # Pre-load arrow library to avoid timeout on first use
-    Port.command(port, "library(arrow)\n")
+    # Pre-load arrow library with suppressed messages
+    Port.command(port, "suppressPackageStartupMessages(library(arrow))\n")
 
     # Wait for arrow library to load and R to be ready again
     _arrow_buffer = wait_for_r_ready(port, "", 10000)
@@ -74,30 +74,37 @@ defmodule PlotsWithPhoenix.RSession do
   end
 
   def handle_info({:port, {:exit_status, status}}, %{port: _port, waiting: waiting} = state) do
-    Logger.error("r session died with status: #{status}")
+    # Only log non-zero exit status (0 is normal termination)
+    if status != 0 do
+      Logger.error("r session died with status: #{status}")
+    end
     if waiting, do: GenServer.reply(waiting, {:error, :session_died})
     {:stop, :r_session_died, state}
   end
 
+  def terminate(_reason, %{port: port}) do
+    # Send quit command to R before closing port to avoid SIGPIPE errors
+    try do
+      Port.command(port, "q(save='no')\n")
+      Port.close(port)
+    catch
+      _, _ -> :ok
+    end
+    :ok
+  end
+
   defp extract_result(output) do
     # The output ends with "> " (prompt with space)
-    # Remove the final prompt and extract just the result
+    # R echoes the command back before showing output, so we need to skip it
     output
     # Remove trailing prompt
     |> String.replace_suffix("> ", "")
-    # Split into lines
+    # Split into lines and filter out empty ones
     |> String.split("\n")
-    # Start from the end
-    |> Enum.reverse()
-    |> Enum.take_while(fn line ->
-      # Take lines that are actual output (not echoed commands)
-      line != "" and !String.starts_with?(line, ["tryCatch", "library(", "> ", "+ "])
-    end)
-    # Restore original order
-    |> Enum.reverse()
+    |> Enum.reject(&(&1 == ""))
+    # Drop the first line (the echoed command)
+    |> Enum.drop(1)
     |> Enum.join("\n")
-    # Remove [1] prefix if present
-    |> String.replace(~r/^\[1\] /, "")
     |> String.trim()
   end
 end
