@@ -45,7 +45,10 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLive do
   @impl true
   def handle_info({:dataset_task_started, month, task_ref}, socket) do
     datasets = socket.assigns.datasets
-    updated_datasets = Map.put(datasets, month, %{datasets[month] | task_ref: task_ref, status: :loading})
+
+    updated_datasets =
+      Map.put(datasets, month, %{datasets[month] | task_ref: task_ref, status: :loading})
+
     {:noreply, assign(socket, :datasets, updated_datasets)}
   end
 
@@ -170,12 +173,15 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLive do
 
     # Use semicolons to make this a single-line expression for R
     # arrow library is pre-loaded in RSession init, so no need to load it here
-    r_code = "tryCatch({ data <- read_parquet(\"#{escaped_path}\"); rows <- nrow(data); columns <- ncol(data); cat(paste(\"ROWS:\", rows, \"COLUMNS:\", columns)) }, error = function(e) { cat(paste(\"ERROR:\", e$message)) })"
+    r_code =
+      "tryCatch({ data <- read_parquet(\"#{escaped_path}\"); rows <- nrow(data); columns <- ncol(data); cat(paste(\"ROWS:\", rows, \"COLUMNS:\", columns)) }, error = function(e) { cat(paste(\"ERROR:\", e$message)) })"
 
     case PlotsWithPhoenix.UserRSessions.eval_for_user(user_session_id, r_code) do
       {:ok, output} ->
         parse_r_output(output)
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

@@ -36,6 +36,7 @@ defmodule PlotsWithPhoenix.RSession do
     receive do
       {^port, {:data, data}} ->
         new_buffer = buffer <> data
+
         if Regex.match?(@r_prompt_pattern, new_buffer) do
           new_buffer
         else
@@ -82,16 +83,21 @@ defmodule PlotsWithPhoenix.RSession do
     # The output ends with "> " (prompt with space)
     # Remove the final prompt and extract just the result
     output
-    |> String.replace_suffix("> ", "")  # Remove trailing prompt
-    |> String.split("\n")               # Split into lines
-    |> Enum.reverse()                   # Start from the end
+    # Remove trailing prompt
+    |> String.replace_suffix("> ", "")
+    # Split into lines
+    |> String.split("\n")
+    # Start from the end
+    |> Enum.reverse()
     |> Enum.take_while(fn line ->
       # Take lines that are actual output (not echoed commands)
       line != "" and !String.starts_with?(line, ["tryCatch", "library(", "> ", "+ "])
     end)
-    |> Enum.reverse()                   # Restore original order
+    # Restore original order
+    |> Enum.reverse()
     |> Enum.join("\n")
-    |> String.replace(~r/^\[1\] /, "")  # Remove [1] prefix if present
+    # Remove [1] prefix if present
+    |> String.replace(~r/^\[1\] /, "")
     |> String.trim()
   end
 end
