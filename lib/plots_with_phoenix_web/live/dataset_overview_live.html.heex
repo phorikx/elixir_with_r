@@ -9,7 +9,7 @@
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-    <%= for {month, dataset} <- @ordered_datasets do %>
+    <%= for {month, dataset} <- ordered_datasets(@datasets) do %>
       <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
         <h3 class="font-semibold text-lg mb-2 capitalize text-gray-800">
           {month}
@@ -28,6 +28,10 @@
               </div>
             <% :pending -> %>
               <div class="text-blue-600 mt-2">
+                <span class="animate-pulse">🔄 Queued...</span>
+              </div>
+            <% :loading -> %>
+              <div class="text-blue-600 mt-2">
                 <span class="animate-pulse">🔄 Analyzing...</span>
               </div>
             <% :loaded -> %>
@@ -43,8 +47,8 @@
                 </div>
               </div>
             <% :error -> %>
-              <div class="text-red-600 mt-2">
-                ❌ Error: {dataset.error}
+              <div class="text-red-600 mt-2 text-xs break-words">
+                ❌ {dataset.error}
               </div>
           <% end %>
         </div>
@@ -59,17 +63,17 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
         <span class="text-gray-600">Loaded datasets:</span>
-        <div class="font-semibold text-gray-800">{length(@loaded_datasets)} / 12</div>
+        <div class="font-semibold text-gray-800">{loaded_dataset_count(@datasets)} / 12</div>
       </div>
       <div>
         <span class="text-gray-600">Total rows:</span>
-        <div class="font-semibold text-gray-800">{format_number(@total_rows)}</div>
+        <div class="font-semibold text-gray-800">{format_number(total_rows(@datasets))}</div>
       </div>
       <div>
         <span class="text-gray-600">Avg rows/month:</span>
         <div class="font-semibold text-gray-800">
-          <%= if length(@loaded_datasets) > 0 do %>
-            {format_number(div(@total_rows, length(@loaded_datasets)))}
+          <%= if loaded_dataset_count(@datasets) > 0 do %>
+            {format_number(div(total_rows(@datasets), loaded_dataset_count(@datasets)))}
           <% else %>
             -
           <% end %>

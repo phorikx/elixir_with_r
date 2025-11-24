@@ -3,8 +3,10 @@ defmodule PlotsWithPhoenix.RSession do
   require Logger
 
   @timeout 30_000
-  @r_prompt_pattern ~r/^> $/m
-  @r_continuation_pattern ~r/^\+ $/m
+  # R prompt is "> " (with space) at the end of output
+  @r_prompt_pattern ~r/> $/
+  # R continuation prompt is "+ " (with space) at the end
+  @r_continuation_pattern ~r/\+ $/
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts)
@@ -18,14 +20,32 @@ defmodule PlotsWithPhoenix.RSession do
     cmd = "R --no-restore --no-save --quiet"
     port = Port.open({:spawn, cmd}, [:binary, :exit_status, :hide])
 
-    receive do
-      {^port, {:data, _}} -> :ok
-    after
-      5000 ->
-        Logger.warning("r session startup timeout")
-    end
+    # Wait for initial R startup and consume all startup messages
+    _startup_buffer = wait_for_r_ready(port, "", 5000)
+
+    # Pre-load arrow library to avoid timeout on first use
+    Port.command(port, "library(arrow)\n")
+
+    # Wait for arrow library to load and R to be ready again
+    _arrow_buffer = wait_for_r_ready(port, "", 10000)
 
     {:ok, %{port: port, buffer: "", waiting: nil}}
+  end
+
+  defp wait_for_r_ready(port, buffer, timeout) do
+    receive do
+      {^port, {:data, data}} ->
+        new_buffer = buffer <> data
+        if Regex.match?(@r_prompt_pattern, new_buffer) do
+          new_buffer
+        else
+          wait_for_r_ready(port, new_buffer, timeout)
+        end
+    after
+      timeout ->
+        Logger.warning("R ready timeout, buffer: #{inspect(buffer)}")
+        buffer
+    end
   end
 
   def handle_call({:eval, code}, from, %{port: port} = state) do
@@ -59,16 +79,19 @@ defmodule PlotsWithPhoenix.RSession do
   end
 
   defp extract_result(output) do
+    # The output ends with "> " (prompt with space)
+    # Remove the final prompt and extract just the result
     output
-    |> String.split(~r/^> $/m)
-    |> Enum.drop(-1)
-    |> List.last()
-    |> String.split(~r/\[1\] /m)
-    |> Enum.drop(1)
-    |> List.last()
-    |> case do
-      nil -> ""
-      result -> String.trim(result)
-    end
+    |> String.replace_suffix("> ", "")  # Remove trailing prompt
+    |> String.split("\n")               # Split into lines
+    |> Enum.reverse()                   # Start from the end
+    |> Enum.take_while(fn line ->
+      # Take lines that are actual output (not echoed commands)
+      line != "" and !String.starts_with?(line, ["tryCatch", "library(", "> ", "+ "])
+    end)
+    |> Enum.reverse()                   # Restore original order
+    |> Enum.join("\n")
+    |> String.replace(~r/^\[1\] /, "")  # Remove [1] prefix if present
+    |> String.trim()
   end
 end

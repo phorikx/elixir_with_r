@@ -195,16 +195,8 @@ defmodule Mix.Tasks.GenerateDataset do
 
   defp build_template(unknown, _) do
     IO.puts("X Unkown template: #{unknown}")
-    IO.puts("Available templates: transactions, unemployment_benefits")
+    IO.puts("Available templates: unemployment_benefits")
     System.halt(1)
-  end
-
-  defp is_expensive(_row_idx, row_data) do
-    if row_data["amount"] > 100 do
-      true
-    else
-      false
-    end
   end
 
   defp parse_reporting_period(period) when is_binary(period) do

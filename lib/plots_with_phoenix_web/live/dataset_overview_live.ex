@@ -16,7 +16,7 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLive do
     # start async loading for all datasets
     send(self(), :load_all_datasets)
 
-    {:ok, socket |> add_computed_assigns()}
+    {:ok, socket}
   end
 
   @impl true
@@ -39,32 +39,14 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLive do
       end
     end)
 
-    {:noreply, add_computed_assigns(socket)}
-  end
-
-  @impl true
-  defp add_computed_assigns(%{assigns: %{datasets: socket_datasets}} = socket) do
-    ordered_datasets = 
-      ~w(january february march april may june july august september october november december)
-      |> Enum.map(fn month -> 
-        {month, socket_datasets[month]}
-      end)
-    
-    loaded_datasets = Enum.filter(ordered_datasets, fn {_, d} -> d.status == :loaded end)
-    total_rows = Enum.sum(for {_, d} <- loaded_datasets, do: d.rows || 0)
-    
-    socket
-    |> assign(:ordered_datasets, ordered_datasets)
-    |> assign(:loaded_datasets, loaded_datasets)
-    |> assign(:total_rows, total_rows)
+    {:noreply, socket}
   end
 
   @impl true
   def handle_info({:dataset_task_started, month, task_ref}, socket) do
     datasets = socket.assigns.datasets
-    updated_datasets = Map.put(datasets, month, %{datasets[month] | task_ref: task_ref})
-    socket = assign(socket, :datasets, updated_datasets)
-    {:noreply, socket |> add_computed_assigns()}
+    updated_datasets = Map.put(datasets, month, %{datasets[month] | task_ref: task_ref, status: :loading})
+    {:noreply, assign(socket, :datasets, updated_datasets)}
   end
 
   @impl true
@@ -77,58 +59,88 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLive do
         dataset.task_ref == ref
       end)
 
-  datasets = socket.assigns.datasets
-  
-  updated_datasets = 
-    case result do
-      {:ok, %{rows: rows, columns: columns}} ->
-        Map.put(datasets, month, %{
-          datasets[month] |
-          status: :loaded,
-          rows: rows,
-          columns: columns,
-          task_ref: nil
-        })
-        
-      {:error, reason} ->
-        Map.put(datasets, month, %{
-          datasets[month] |
-          status: :error,
-          error: reason,
-          task_ref: nil
-        })
-    end
+    datasets = socket.assigns.datasets
+
+    updated_datasets =
+      case result do
+        {:ok, %{rows: rows, columns: columns}} ->
+          Map.put(datasets, month, %{
+            datasets[month]
+            | status: :loaded,
+              rows: rows,
+              columns: columns,
+              task_ref: nil
+          })
+
+        {:error, reason} ->
+          Map.put(datasets, month, %{
+            datasets[month]
+            | status: :error,
+              error: reason,
+              task_ref: nil
+          })
+      end
+
     new_loading_count = socket.assigns.loading_count - 1
 
-    socket =
-      socket
-      |> assign(:datasets, updated_datasets)
-      |> assign(:loading_count, new_loading_count) 
-      |> add_computed_assigns
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> assign(:datasets, updated_datasets)
+     |> assign(:loading_count, new_loading_count)}
   end
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, reason}, socket) do
     # find failed task and mark as error
-    {month, _dataset} =
-      Enum.find(socket.assigns.datasets, fn {_month, dataset} ->
-        dataset.task_ref == ref
-      end)
+    case Enum.find(socket.assigns.datasets, fn {_month, dataset} ->
+           dataset.task_ref == ref
+         end) do
+      nil ->
+        # Task ref not found, might have already been handled
+        {:noreply, socket}
 
-    datasets = socket.assigns.datasets
-    updated_datasets = Map.put(datasets, month, %{datasets[month] | status: :error,
-          error: "Task failed: #{inspect(reason)}",
-          task_ref: nil
-      })
+      {month, _dataset} ->
+        datasets = socket.assigns.datasets
 
-    socket =
-      socket
-      |> assign(:datasets, updated_datasets)
-      |> assign(:loading_count, socket.assigns.loading_count - 1)
+        error_msg =
+          case reason do
+            :normal -> "Task completed normally but no result received"
+            {:timeout, _} -> "Timeout loading dataset (R session may be busy)"
+            _ -> "Task failed: #{inspect(reason)}"
+          end
 
-    {:noreply, socket |> add_computed_assigns()}
+        updated_datasets =
+          Map.put(datasets, month, %{
+            datasets[month]
+            | status: :error,
+              error: error_msg,
+              task_ref: nil
+          })
+
+        {:noreply,
+         socket
+         |> assign(:datasets, updated_datasets)
+         |> assign(:loading_count, max(0, socket.assigns.loading_count - 1))}
+    end
+  end
+
+  # Helper functions for template
+  defp ordered_datasets(datasets) do
+    @months
+    |> Enum.map(fn month -> {month, datasets[month]} end)
+  end
+
+  defp loaded_dataset_count(datasets) do
+    datasets
+    |> Map.values()
+    |> Enum.count(&(&1.status == :loaded))
+  end
+
+  defp total_rows(datasets) do
+    datasets
+    |> Map.values()
+    |> Enum.filter(&(&1.status == :loaded))
+    |> Enum.sum_by(& &1.rows)
   end
 
   defp initialize_datasets do
@@ -156,20 +168,13 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLive do
     # escape the file path for r
     escaped_path = String.replace(file_path, "\\", "/")
 
-    r_code = """
-    library(arrow)
-    tryCatch({
-      data <- read_parquet("#{escaped_path}")
-      rows <- nrow(data)
-      columns <- ncol(data)
-      cat(paste("ROWS:", rows, "COLUMNS:", columns))
-    }, error = function(e) {
-      cat(paste("ERROR:", e$message))
-    })
-    """
+    # Use semicolons to make this a single-line expression for R
+    # arrow library is pre-loaded in RSession init, so no need to load it here
+    r_code = "tryCatch({ data <- read_parquet(\"#{escaped_path}\"); rows <- nrow(data); columns <- ncol(data); cat(paste(\"ROWS:\", rows, \"COLUMNS:\", columns)) }, error = function(e) { cat(paste(\"ERROR:\", e$message)) })"
 
     case PlotsWithPhoenix.UserRSessions.eval_for_user(user_session_id, r_code) do
-      {:ok, output} -> parse_r_output(output)
+      {:ok, output} ->
+        parse_r_output(output)
       {:error, reason} -> {:error, reason}
     end
   end

@@ -1,5 +1,25 @@
 <Layouts.flash_group flash={@flash} />
 <div class="max-w-4xl mx-auto p-6">
-  <h1 class="text-3xl font-bold mb-6">Home</h1>
-  <.link href={~p"/r_console"}> Go to console</.link>
+  <h1 class="text-3xl font-bold mb-6 text-gray-900">Plots with Phoenix</h1>
+  <p class="text-gray-600 mb-8">Interactive R analysis and data visualization</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <.link navigate={~p"/r_console"} class="block">
+      <div class="border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+        <h2 class="text-xl font-semibold mb-2 text-gray-900">R Console</h2>
+        <p class="text-gray-600 text-sm">
+          Interactive R console with persistent session. Execute R commands and see results in real-time.
+        </p>
+      </div>
+    </.link>
+
+    <.link navigate={~p"/datasets"} class="block">
+      <div class="border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+        <h2 class="text-xl font-semibold mb-2 text-gray-900">Dataset Overview</h2>
+        <p class="text-gray-600 text-sm">
+          View and analyze Parquet datasets. See row counts, column information, and summary statistics.
+        </p>
+      </div>
+    </.link>
+  </div>
 </div>
