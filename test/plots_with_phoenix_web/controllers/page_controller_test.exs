@@ -3,6 +3,9 @@ defmodule PlotsWithPhoenixWeb.PageControllerTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    response = html_response(conn, 200)
+    assert response =~ "Plots with Phoenix"
+    assert response =~ "R Console"
+    assert response =~ "Dataset Overview"
   end
 end
