@@ -78,6 +78,7 @@ defmodule PlotsWithPhoenix.RSession do
     if status != 0 do
       Logger.error("r session died with status: #{status}")
     end
+
     if waiting, do: GenServer.reply(waiting, {:error, :session_died})
     {:stop, :r_session_died, state}
   end
@@ -90,6 +91,7 @@ defmodule PlotsWithPhoenix.RSession do
     catch
       _, _ -> :ok
     end
+
     :ok
   end
 
