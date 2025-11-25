@@ -1,0 +1,54 @@
+name: simple_example
+
+# A simple example demonstrating basic generators
+dataset:
+  variables:
+    # Sequential ID
+    id:
+      type: sequence
+      start: 1
+
+    # Timestamp - uses placeholder for runtime substitution
+    created_at:
+      type: constant
+      value: "{{reporting_period}}"
+
+    # Name from categorical list
+    name:
+      type: categorical
+      options: [Alice, Bob, Charlie, Diana, Eve]
+
+    # Age with normal distribution
+    age:
+      type: normal
+      mean: 35
+      sd: 8
+
+    # Score with uniform distribution
+    score:
+      type: uniform
+      min: 0
+      max: 100
+
+    # Status with weighted probabilities
+    status:
+      type: categorical
+      options: [active, inactive, pending]
+      weights: [0.7, 0.2, 0.1]
+
+# Optional: iteration configuration for evolving the dataset over time
+iteration:
+  identical_rate: 0.8
+  drop_rate: 0.05
+  new_record_percentage: 0.05
+
+  column_transformers:
+    # Age everyone by 1 year
+    - column: age
+      type: add
+      value: 1.0
+
+    # Advance timestamp by 1 month
+    - column: created_at
+      type: shift_date
+      months: 1

@@ -1,0 +1,92 @@
+name: unemployment_benefits
+
+# Dataset template defines the initial data generation structure
+dataset:
+  variables:
+    # Sequential ID starting from 1
+    person_id:
+      type: sequence
+      start: 1
+
+    # Reporting period - uses placeholder that can be substituted at runtime
+    reporting_period:
+      type: constant
+      value: "{{reporting_period}}"
+
+    # Age with normal distribution (mean=85.5, sd=10)
+    age:
+      type: normal
+      mean: 85.5
+      sd: 10
+
+    # Gender - simple categorical without weights (equal probability)
+    gender:
+      type: categorical
+      options: [M, F]
+
+    # Benefit type - categorical with weights (probabilities)
+    benefit_type:
+      type: categorical
+      options: [temporary, permanent, "due to sickness", settlement]
+      weights: [0.5, 0.1, 0.3, 0.1]
+
+    # Benefit amount - normal distribution
+    amount:
+      type: normal
+      mean: 1000
+      sd: 200
+
+    # Additional income - normal distribution
+    additional_income:
+      type: normal
+      mean: 300
+      sd: 50
+
+# Iteration template defines how to evolve the dataset over time
+iteration:
+  # 70% of records remain unchanged
+  identical_rate: 0.7
+
+  # 5% of non-identical records are dropped
+  drop_rate: 0.05
+
+  # Add 10% new records based on original dataset size
+  new_record_percentage: 0.10
+
+  # Column resamplers: probabilistically resample specific columns
+  column_resamplers:
+    # 70% chance to resample benefit_type for non-identical records
+    - column: benefit_type
+      probability: 0.70
+      generator:
+        type: categorical
+        options: [temporary, permanent, "due to sickness", settlement]
+        weights: [0.5, 0.1, 0.3, 0.1]
+
+    # 30% chance to resample amount
+    - column: amount
+      probability: 0.30
+      generator:
+        type: normal
+        mean: 1000
+        sd: 200
+
+    # 90% chance to resample additional_income
+    - column: additional_income
+      probability: 0.90
+      generator:
+        type: normal
+        mean: 300
+        sd: 50
+
+  # Column transformers: apply transformations to all records
+  column_transformers:
+    # Age all people by 1 month (1/12 of a year)
+    - column: age
+      type: add
+      value: 0.0833333
+
+    # Shift reporting period forward by 1 month
+    - column: reporting_period
+      type: shift_date
+      months: 1
