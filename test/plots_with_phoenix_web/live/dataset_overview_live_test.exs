@@ -15,7 +15,8 @@ defmodule PlotsWithPhoenixWeb.DatasetOverviewLiveTest do
       {:ok, _view, html} = live(conn, ~p"/datasets")
 
       # Check that all months are displayed
-      months = ~w(january february march april may june july august september october november december)
+      months =
+        ~w(january february march april may june july august september october november december)
 
       for month <- months do
         assert html =~ month

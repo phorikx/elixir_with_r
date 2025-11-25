@@ -5,10 +5,13 @@ defmodule PlotsWithPhoenixWeb.RConsoleLiveTest do
 
   # Helper to wait for async updates in LiveView
   defp wait_for_result(view, timeout \\ 5000) do
-    wait_until(fn ->
-      html = render(view)
-      html =~ "Output:" and not (html =~ "Executing...")
-    end, timeout)
+    wait_until(
+      fn ->
+        html = render(view)
+        html =~ "Output:" and not (html =~ "Executing...")
+      end,
+      timeout
+    )
   end
 
   defp wait_until(fun, timeout) do
