@@ -101,7 +101,7 @@ defmodule PlotsWithPhoenix.DataGenerator do
         new_degrees = Map.put(degrees, dependent, new_degree)
 
         if new_degree == 0 do
-          {[dependent | q], new_degree}
+          {[dependent | q], new_degrees}
         else
           {q, new_degrees}
         end

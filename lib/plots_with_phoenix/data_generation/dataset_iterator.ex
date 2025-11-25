@@ -17,7 +17,10 @@ defmodule PlotsWithPhoenix.DatasetIterator do
 
     transformed_records = apply_column_transformations(all_records, iteration_template)
 
-    {:ok, transformed_records}
+    # Normalize all records to use string keys for consistency
+    normalized_records = Enum.map(transformed_records, &normalize_keys/1)
+
+    {:ok, normalized_records}
   end
 
   defp find_sequence_maxes(previous_rows, %DatasetTemplate{variables: variables}) do
@@ -74,7 +77,9 @@ defmodule PlotsWithPhoenix.DatasetIterator do
 
       if :rand.uniform() < probability do
         new_value = DataGenerator.generate_single_value(generator, 0, current_row)
-        Map.put(current_row, column, new_value)
+        # Handle both atom and string keys
+        key = get_map_key(current_row, column)
+        Map.put(current_row, key, new_value)
       else
         current_row
       end
@@ -123,10 +128,31 @@ defmodule PlotsWithPhoenix.DatasetIterator do
         transformer
 
       Enum.map(current_records, fn record ->
-        current_value = Map.get(record, column)
+        # Handle both atom and string keys
+        key = get_map_key(record, column)
+        current_value = Map.get(record, key)
         new_value = transformer_fn.(current_value, record)
-        Map.put(record, column, new_value)
+        Map.put(record, key, new_value)
       end)
+    end)
+  end
+
+  # Helper to get the correct key from a map (handles both atom and string keys)
+  defp get_map_key(map, atom_key) when is_atom(atom_key) do
+    string_key = Atom.to_string(atom_key)
+
+    cond do
+      Map.has_key?(map, atom_key) -> atom_key
+      Map.has_key?(map, string_key) -> string_key
+      true -> atom_key
+    end
+  end
+
+  # Normalize all keys in a map to strings
+  defp normalize_keys(map) do
+    Map.new(map, fn
+      {key, value} when is_atom(key) -> {Atom.to_string(key), value}
+      {key, value} -> {key, value}
     end)
   end
 end
